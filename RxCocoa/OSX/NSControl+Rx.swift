@@ -3,7 +3,7 @@
 //  RxCocoa
 //
 //  Created by Krunoslav Zaher on 5/31/15.
-//  Copyright (c) 2015 Krunoslav Zaher. All rights reserved.
+//  Copyright © 2015 Krunoslav Zaher. All rights reserved.
 //
 
 import Foundation
@@ -12,46 +12,76 @@ import Cocoa
 import RxSwift
 #endif
 
+var rx_value_key: UInt8 = 0
+var rx_control_events_key: UInt8 = 0
+
 extension NSControl {
-    
+
     /**
     Reactive wrapper for control event.
     */
-    public var rx_controlEvents: ControlEvent<Void> {
-        let source: Observable<Void> = AnonymousObservable { observer in
-            MainScheduler.ensureExecutingOnScheduler()
-            
-            let observer = ControlTarget(control: self) { control in
-                observer.on(.Next())
-            }
-            
-            return observer
-        }.takeUntil(rx_deallocated)
+    public var rx_controlEvent: ControlEvent<Void> {
+        MainScheduler.ensureExecutingOnScheduler()
+
+        let source = rx_lazyInstanceObservable(&rx_control_events_key) { () -> Observable<Void> in
+            Observable.create { [weak self] observer in
+                MainScheduler.ensureExecutingOnScheduler()
+
+                guard let control = self else {
+                    observer.on(.Completed)
+                    return NopDisposable.instance
+                }
+
+                let observer = ControlTarget(control: control) { control in
+                    observer.on(.Next())
+                }
+                
+                return observer
+            }.takeUntil(self.rx_deallocated)
+        }
         
-        return ControlEvent(source: source)
+        return ControlEvent(events: source)
     }
-    
-    func rx_value<T>(getter getter: () -> T, setter: T -> Void) -> ControlProperty<T> {
-        let source: Observable<T> = AnonymousObservable { observer in
-            observer.on(.Next(getter()))
-            
-            let observer = ControlTarget(control: self) { control in
-                observer.on(.Next(getter()))
+
+    /**
+     You might be wondering why the ugly `as!` casts etc, well, for some reason if
+     Swift compiler knows C is UIControl type and optimizations are turned on, it will crash.
+    */
+    static func rx_value<C: AnyObject, T: Equatable>(control: C, getter: (C) -> T, setter: (C, T) -> Void) -> ControlProperty<T> {
+        MainScheduler.ensureExecutingOnScheduler()
+
+        let source = (control as! NSObject).rx_lazyInstanceObservable(&rx_value_key) { () -> Observable<T> in
+            return Observable.create { [weak weakControl = control] (observer: AnyObserver<T>) in
+                guard let control = weakControl else {
+                    observer.on(.Completed)
+                    return NopDisposable.instance
+                }
+
+                observer.on(.Next(getter(control)))
+
+                let observer = ControlTarget(control: control as! NSControl) { _ in
+                    if let control = weakControl {
+                        observer.on(.Next(getter(control)))
+                    }
+                }
+                
+                return observer
             }
-            
-            return observer
-        }.takeUntil(rx_deallocated)
-        
-        return ControlProperty(source: source, observer: ObserverOf { event in
-            switch event {
-            case .Next(let value):
-                setter(value)
-            case .Error(let error):
-                bindingErrorToInterface(error)
-            case .Completed:
-                break
-            }
-        })
+            .distinctUntilChanged()
+            .takeUntil((control as! NSObject).rx_deallocated)
+        }
+
+        let bindingObserver = UIBindingObserver(UIElement: control, binding: setter)
+
+        return ControlProperty(values: source, valueSink: bindingObserver)
     }
-    
+
+    /**
+     Bindable sink for `enabled` property.
+    */
+    public var rx_enabled: AnyObserver<Bool> {
+        return UIBindingObserver(UIElement: self) { (owner, value) in
+            owner.enabled = value
+        }.asObserver()
+    }
 }

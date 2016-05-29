@@ -3,7 +3,7 @@
 //  Example
 //
 //  Created by Krunoslav Zaher on 4/3/15.
-//  Copyright (c) 2015 Krunoslav Zaher. All rights reserved.
+//  Copyright © 2015 Krunoslav Zaher. All rights reserved.
 //
 
 import Foundation
@@ -15,8 +15,8 @@ import RxCocoa
 class SearchResultViewModel {
     let searchResult: WikipediaSearchResult
 
-    var title: Observable<String>
-    var imageURLs: Observable<[NSURL]>
+    var title: Driver<String>
+    var imageURLs: Driver<[NSURL]>
 
     let API = DefaultWikipediaAPI.sharedAPI
     let $: Dependencies = Dependencies.sharedDependencies
@@ -24,13 +24,13 @@ class SearchResultViewModel {
     init(searchResult: WikipediaSearchResult) {
         self.searchResult = searchResult
 
-        self.title = never()
-        self.imageURLs = never()
+        self.title = Driver.never()
+        self.imageURLs = Driver.never()
 
         let URLs = configureImageURLs()
 
-        self.imageURLs = URLs.catchErrorJustReturn([])
-        self.title = configureTitle(URLs).catchErrorJustReturn("Error during fetching")
+        self.imageURLs = URLs.asDriver(onErrorJustReturn: [])
+        self.title = configureTitle(URLs).asDriver(onErrorJustReturn: "Error during fetching")
     }
 
     // private methods
@@ -51,6 +51,7 @@ class SearchResultViewModel {
                     return "\(searchResult.title) loading ..."
                 }
             }
+            .retryOnBecomesReachable("⚠️ Service offline ⚠️", reachabilityService: $.reachabilityService)
     }
 
     func configureImageURLs() -> Observable<[NSURL]> {
@@ -64,7 +65,5 @@ class SearchResultViewModel {
                     return []
                 }
             }
-            .observeOn($.mainScheduler)
-            .shareReplay(1)
     }
 }

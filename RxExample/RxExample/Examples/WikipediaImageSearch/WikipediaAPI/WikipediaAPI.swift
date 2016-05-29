@@ -3,7 +3,7 @@
 //  Example
 //
 //  Created by Krunoslav Zaher on 3/25/15.
-//  Copyright (c) 2015 Krunoslav Zaher. All rights reserved.
+//  Copyright © 2015 Krunoslav Zaher. All rights reserved.
 //
 
 import Foundation
@@ -23,26 +23,29 @@ protocol WikipediaAPI {
     func articleContent(searchResult: WikipediaSearchResult) -> Observable<WikipediaPage>
 }
 
-func URLEscape(pathSegment: String) -> String {
-   return pathSegment.stringByAddingPercentEncodingWithAllowedCharacters(.URLHostAllowedCharacterSet())!
-}
-
 class DefaultWikipediaAPI: WikipediaAPI {
     
     static let sharedAPI = DefaultWikipediaAPI() // Singleton
     
     let $: Dependencies = Dependencies.sharedDependencies
-    
+
+    let loadingWikipediaData = ActivityIndicator()
+
     private init() {}
-    
+
+    private func rx_JSON(URL: NSURL) -> Observable<AnyObject> {
+        return $.URLSession
+            .rx_JSON(URL)
+            .trackActivity(loadingWikipediaData)
+    }
+
     // Example wikipedia response http://en.wikipedia.org/w/api.php?action=opensearch&search=Rx
     func getSearchResults(query: String) -> Observable<[WikipediaSearchResult]> {
-        let escapedQuery = URLEscape(query)
+        let escapedQuery = query.URLEscaped
         let urlContent = "http://en.wikipedia.org/w/api.php?action=opensearch&search=\(escapedQuery)"
         let url = NSURL(string: urlContent)!
             
-        return $.URLSession
-            .rx_JSON(url)
+        return rx_JSON(url)
             .observeOn($.backgroundWorkScheduler)
             .map { json in
                 guard let json = json as? [AnyObject] else {
@@ -56,12 +59,12 @@ class DefaultWikipediaAPI: WikipediaAPI {
     
     // http://en.wikipedia.org/w/api.php?action=parse&page=rx&format=json
     func articleContent(searchResult: WikipediaSearchResult) -> Observable<WikipediaPage> {
-        let escapedPage = URLEscape(searchResult.title)
+        let escapedPage = searchResult.title.URLEscaped
         guard let url = NSURL(string: "http://en.wikipedia.org/w/api.php?action=parse&page=\(escapedPage)&format=json") else {
-            return failWith(apiError("Can't create url"))
+            return Observable.error(apiError("Can't create url"))
         }
         
-        return $.URLSession.rx_JSON(url)
+        return rx_JSON(url)
             .map { jsonResult in
                 guard let json = jsonResult as? NSDictionary else {
                     throw exampleError("Parsing error")

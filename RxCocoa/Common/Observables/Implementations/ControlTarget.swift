@@ -3,7 +3,7 @@
 //  RxCocoa
 //
 //  Created by Krunoslav Zaher on 2/21/15.
-//  Copyright (c) 2015 Krunoslav Zaher. All rights reserved.
+//  Copyright © 2015 Krunoslav Zaher. All rights reserved.
 //
 
 #if os(iOS) || os(tvOS) || os(OSX)
@@ -28,10 +28,10 @@ import RxSwift
 class ControlTarget: RxTarget {
     typealias Callback = (Control) -> Void
 
-    let selector: Selector = "eventHandler:"
+    let selector: Selector = #selector(ControlTarget.eventHandler(_:))
 
-    unowned let control: Control
-    #if os(iOS) || os(tvOS)
+    weak var control: Control?
+#if os(iOS) || os(tvOS)
     let controlEvents: UIControlEvents
 #endif
     var callback: Callback?
@@ -72,7 +72,7 @@ class ControlTarget: RxTarget {
 #endif
 
     func eventHandler(sender: Control!) {
-        if let callback = self.callback {
+        if let callback = self.callback, control = self.control {
             callback(control)
         }
     }
@@ -80,10 +80,10 @@ class ControlTarget: RxTarget {
     override func dispose() {
         super.dispose()
 #if os(iOS) || os(tvOS)
-        self.control.removeTarget(self, action: self.selector, forControlEvents: self.controlEvents)
+        self.control?.removeTarget(self, action: self.selector, forControlEvents: self.controlEvents)
 #elseif os(OSX)
-        self.control.target = nil
-        self.control.action = nil
+        self.control?.target = nil
+        self.control?.action = nil
 #endif
         self.callback = nil
     }

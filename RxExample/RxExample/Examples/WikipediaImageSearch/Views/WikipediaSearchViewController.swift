@@ -1,9 +1,9 @@
 //
-//  ViewController.swift
+//  WikipediaSearchViewController.swift
 //  Example
 //
 //  Created by Krunoslav Zaher on 2/21/15.
-//  Copyright (c) 2015 Krunoslav Zaher. All rights reserved.
+//  Copyright © 2015 Krunoslav Zaher. All rights reserved.
 //
 
 import UIKit
@@ -13,10 +13,22 @@ import RxCocoa
 #endif
 
 class WikipediaSearchViewController: ViewController {
+    @IBOutlet var searchBarContainer: UIView!
     
-    private var disposeBag = DisposeBag()
-    private var viewModel: SearchViewModel? = nil
+    private let searchController = UISearchController(searchResultsController: UITableViewController())
     
+    private var resultsViewController: UITableViewController {
+        return (self.searchController.searchResultsController as? UITableViewController)!
+    }
+    
+    private var resultsTableView: UITableView {
+        return self.resultsViewController.tableView!
+    }
+
+    private var searchBar: UISearchBar {
+        return self.searchController.searchBar
+    }
+
     override func awakeFromNib() {
         super.awakeFromNib()
     }
@@ -26,40 +38,87 @@ class WikipediaSearchViewController: ViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        let resultsTableView = self.searchDisplayController!.searchResultsTableView
-        let searchBar = self.searchDisplayController!.searchBar
-        
+        let searchBar = self.searchBar
+        let searchBarContainer = self.searchBarContainer
+
+        searchBarContainer.addSubview(searchBar)
+        searchBar.frame = searchBarContainer.bounds
+        searchBar.autoresizingMask = .FlexibleWidth
+
+        resultsViewController.edgesForExtendedLayout = UIRectEdge.None
+
+        configureTableDataSource()
+        configureKeyboardDismissesOnScroll()
+        configureNavigateOnRowClick()
+        configureActivityIndicatorsShow()
+    }
+
+    func configureTableDataSource() {
         resultsTableView.registerNib(UINib(nibName: "WikipediaSearchCell", bundle: nil), forCellReuseIdentifier: "WikipediaSearchCell")
         
         resultsTableView.rowHeight = 194
-        
-        let selectedResult: Observable<SearchResultViewModel> = resultsTableView.rx_modelSelected().asObservable()
-        
-        let viewModel = SearchViewModel(
-            searchText: searchBar.rx_text.asObservable(),
-            selectedResult: selectedResult
-        )
-        
-        // map table view rows
-        // {
-        viewModel.rows
-            .bindTo(resultsTableView.rx_itemsWithCellIdentifier("WikipediaSearchCell")) { (_, viewModel, cell: WikipediaSearchCell) in
+
+        // This is for clarity only, don't use static dependencies
+        let API = DefaultWikipediaAPI.sharedAPI
+
+        resultsTableView.delegate = nil
+        resultsTableView.dataSource = nil
+
+        searchBar.rx_text
+            .asDriver()
+            .throttle(0.3)
+            .distinctUntilChanged()
+            .flatMapLatest { query in
+                API.getSearchResults(query)
+                    .retry(3)
+                    .retryOnBecomesReachable([], reachabilityService: Dependencies.sharedDependencies.reachabilityService)
+                    .startWith([]) // clears results on new search term
+                    .asDriver(onErrorJustReturn: [])
+            }
+            .map { results in
+                results.map(SearchResultViewModel.init)
+            }
+            .drive(resultsTableView.rx_itemsWithCellIdentifier("WikipediaSearchCell", cellType: WikipediaSearchCell.self)) { (_, viewModel, cell) in
                 cell.viewModel = viewModel
             }
             .addDisposableTo(disposeBag)
-        // }
+    }
 
-        // dismiss keyboard on scroll
-        // {
+    func configureKeyboardDismissesOnScroll() {
+        let searchBar = self.searchBar
+        let searchController = self.searchController
+        
         resultsTableView.rx_contentOffset
-            .subscribeNext { _ in
+            .asDriver()
+            .filter { _ -> Bool in
+                return !searchController.isBeingPresented()
+            }
+            .driveNext { _ in
                 if searchBar.isFirstResponder() {
                     _ = searchBar.resignFirstResponder()
                 }
             }
             .addDisposableTo(disposeBag)
+    }
 
-        self.viewModel = viewModel
-        // }
+    func configureNavigateOnRowClick() {
+        let wireframe = DefaultWireframe.sharedInstance
+
+        resultsTableView.rx_modelSelected(SearchResultViewModel.self)
+            .asDriver()
+            .driveNext { searchResult in
+                wireframe.openURL(searchResult.searchResult.URL)
+            }
+            .addDisposableTo(disposeBag)
+    }
+
+    func configureActivityIndicatorsShow() {
+        Driver.combineLatest(
+            DefaultWikipediaAPI.sharedAPI.loadingWikipediaData,
+            DefaultImageService.sharedImageService.loadingImage
+        ) { $0 || $1 }
+            .distinctUntilChanged()
+            .drive(UIApplication.sharedApplication().rx_networkActivityIndicatorVisible)
+            .addDisposableTo(disposeBag)
     }
 }
