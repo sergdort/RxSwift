@@ -6,24 +6,27 @@ test("----- masterDetail -----", function (check, pass) {
     return pixels / UIATarget.localTarget().frontMostApp().mainWindow().rect().size.height
   }
 
+  var target = UIATarget.localTarget()
 
-  UIATarget.localTarget().frontMostApp().mainWindow().tableViews()[0].cells()[1].tap();
-  UIATarget.localTarget().frontMostApp().navigationBar().rightButton().tap();
-  UIATarget.localTarget().frontMostApp().mainWindow().dragInsideWithOptions({startOffset:{x:0.93, y:yOffset(300)}, endOffset:{x:0.95, y:yOffset(200)}, duration:1.5});
-  UIATarget.localTarget().frontMostApp().mainWindow().dragInsideWithOptions({startOffset:{x:0.93, y:yOffset(300)}, endOffset:{x:0.95, y:yOffset(100)}, duration:1.5});
+  target.delay(2)
 
-  var firstCell = UIATarget.localTarget().frontMostApp().mainWindow().tableViews()[0].cells()[1]
+  target.frontMostApp().mainWindow().tableViews()[0].cells()[10].tap();
+  target.frontMostApp().navigationBar().rightButton().tap();
+  target.frontMostApp().mainWindow().dragInsideWithOptions({startOffset:{x:0.93, y:yOffset(300)}, endOffset:{x:0.95, y:yOffset(200)}, duration:1.5});
+  target.frontMostApp().mainWindow().dragInsideWithOptions({startOffset:{x:0.93, y:yOffset(300)}, endOffset:{x:0.95, y:yOffset(100)}, duration:1.5});
 
-  firstCell.buttons()[0].tap();
+  var firstCell = UIATarget.localTarget().frontMostApp().mainWindow().tableViews()[0].cells()[0]
 
-  firstCell.buttons()["Delete"].tap();
+  firstCell.tapWithOptions({tapOffset:{x:0.05, y:0.77}});
 
-  UIATarget.localTarget().delay( 2 );
+  firstCell.tapWithOptions({tapOffset:{x:0.95, y:0.77}});
 
-  UIATarget.localTarget().frontMostApp().navigationBar().rightButton().tap();
-  UIATarget.localTarget().frontMostApp().mainWindow().tableViews()[0].cells()[1].tap();
-  UIATarget.localTarget().frontMostApp().navigationBar().leftButton().tap();
-  UIATarget.localTarget().frontMostApp().navigationBar().leftButton().tap();
+  target.delay( 3 );
+
+  target.frontMostApp().navigationBar().rightButton().tap();
+  target.frontMostApp().mainWindow().tableViews()[0].cells()[0].tap();
+  goBack();
+  goBack();
 
   pass()
 });

@@ -3,7 +3,7 @@
 //  Example
 //
 //  Created by Krunoslav Zaher on 3/28/15.
-//  Copyright (c) 2015 Krunoslav Zaher. All rights reserved.
+//  Copyright © 2015 Krunoslav Zaher. All rights reserved.
 //
 
 import Foundation
@@ -19,7 +19,7 @@ public class WikipediaSearchCell: UITableViewCell {
     @IBOutlet var URLOutlet: UILabel!
     @IBOutlet var imagesOutlet: UICollectionView!
 
-    var disposeBag: DisposeBag!
+    var disposeBag: DisposeBag?
 
     let imageService = DefaultImageService.sharedImageService
 
@@ -33,21 +33,17 @@ public class WikipediaSearchCell: UITableViewCell {
         didSet {
             let disposeBag = DisposeBag()
 
-            (viewModel?.title ?? just(""))
-                .subscribe(self.titleOutlet.rx_text)
+            (viewModel?.title ?? Driver.just(""))
+                .drive(self.titleOutlet.rx_text)
                 .addDisposableTo(disposeBag)
 
             self.URLOutlet.text = viewModel.searchResult.URL.absoluteString ?? ""
 
+            let reachabilityService = Dependencies.sharedDependencies.reachabilityService
             viewModel.imageURLs
-                .bindTo(self.imagesOutlet.rx_itemsWithCellIdentifier("ImageCell")) { [unowned self] (_, URL, cell: CollectionViewImageCell) in
-                        let loadingPlaceholder: UIImage? = nil
-
-                        cell.image = self.imageService.imageFromURL(URL)
-                            .map { $0 as UIImage? }
-                            .catchErrorJustReturn(nil)
-                            .startWith(loadingPlaceholder)
-                    }
+                .drive(self.imagesOutlet.rx_itemsWithCellIdentifier("ImageCell", cellType: CollectionViewImageCell.self)) { [weak self] (_, URL, cell) in
+                    cell.downloadableImage = self?.imageService.imageFromURL(URL, reachabilityService: reachabilityService) ?? Observable.empty()
+                }
                 .addDisposableTo(disposeBag)
 
             self.disposeBag = disposeBag
@@ -62,4 +58,5 @@ public class WikipediaSearchCell: UITableViewCell {
 
     deinit {
     }
+
 }

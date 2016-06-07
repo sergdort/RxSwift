@@ -3,7 +3,7 @@ API
 
 ## RxSwift supported operators
 
-In some cases there are multiple aliases for the same operator, because on different platforms / implementations, the same operation is sometimes called differently. Sometimes this is because historical reasons, sometimes because of reserved language keywords.
+In some cases there are multiple aliases for the same operator, because on different platforms / implementations, the same operation is sometimes named differently. Sometimes this is because of historical reasons, while sometimes because of reserved language keywords.
 
 When lacking a strong community consensus, RxSwift will usually include multiple aliases.
 
@@ -13,29 +13,39 @@ Operators are stateless by default.
 
  * [`asObservable`](http://reactivex.io/documentation/operators/from.html)
  * [`create`](http://reactivex.io/documentation/operators/create.html)
- * [`defer`](http://reactivex.io/documentation/operators/defer.html)
+ * [`deferred`](http://reactivex.io/documentation/operators/defer.html)
  * [`empty`](http://reactivex.io/documentation/operators/empty-never-throw.html)
- * [`failWith`](http://reactivex.io/documentation/operators/empty-never-throw.html)
- * [`from` (array)](http://reactivex.io/documentation/operators/from.html)
+ * [`error`](http://reactivex.io/documentation/operators/empty-never-throw.html)
+ * [`toObservable` (array)](http://reactivex.io/documentation/operators/from.html)
  * [`interval`](http://reactivex.io/documentation/operators/interval.html)
  * [`never`](http://reactivex.io/documentation/operators/empty-never-throw.html)
- * [`returnElement` / `just`](http://reactivex.io/documentation/operators/just.html)
- * [`returnElements`](http://reactivex.io/documentation/operators/from.html)
+ * [`just`](http://reactivex.io/documentation/operators/just.html)
+ * [`of`](http://reactivex.io/documentation/operators/from.html)
+ * [`range`](http://reactivex.io/documentation/operators/range.html)
+ * [`repeatElement`](http://reactivex.io/documentation/operators/repeat.html)
  * [`timer`](http://reactivex.io/documentation/operators/timer.html)
 
 #### Transforming Observables
-  * [`flatMap`](http://reactivex.io/documentation/operators/flatmap.html)
-  * [`map` / `select`](http://reactivex.io/documentation/operators/map.html)
-  * [`scan`](http://reactivex.io/documentation/operators/scan.html)
+
   * [`buffer`](http://reactivex.io/documentation/operators/buffer.html)
+  * [`flatMap`](http://reactivex.io/documentation/operators/flatmap.html)
+  * [`flatMapFirst`](http://reactivex.io/documentation/operators/flatmap.html)
+  * [`flatMapLatest`](http://reactivex.io/documentation/operators/flatmap.html)
+  * [`map`](http://reactivex.io/documentation/operators/map.html)
+  * [`scan`](http://reactivex.io/documentation/operators/scan.html)
+  * [`window`](http://reactivex.io/documentation/operators/window.html)
 
 #### Filtering Observables
+
   * [`debounce` / `throttle`](http://reactivex.io/documentation/operators/debounce.html)
   * [`distinctUntilChanged`](http://reactivex.io/documentation/operators/distinct.html)
-  * [`filter` / `where`](http://reactivex.io/documentation/operators/filter.html)
+  * [`elementAt`](http://reactivex.io/documentation/operators/elementat.html)
+  * [`filter`](http://reactivex.io/documentation/operators/filter.html)
   * [`sample`](http://reactivex.io/documentation/operators/sample.html)
   * [`skip`](http://reactivex.io/documentation/operators/skip.html)
   * [`take`](http://reactivex.io/documentation/operators/take.html)
+  * [`takeLast`](http://reactivex.io/documentation/operators/takelast.html)
+  * [`single`](http://reactivex.io/documentation/operators/first.html)
 
 #### Combining Observables
 
@@ -49,6 +59,7 @@ Operators are stateless by default.
 
  * [`catch`](http://reactivex.io/documentation/operators/catch.html)
  * [`retry`](http://reactivex.io/documentation/operators/retry.html)
+ * [`retryWhen`](http://reactivex.io/documentation/operators/retry.html)
 
 #### Observable Utility Operators
 
@@ -57,10 +68,15 @@ Operators are stateless by default.
   * [`observeOn` / `observeSingleOn`](http://reactivex.io/documentation/operators/observeon.html)
   * [`subscribe`](http://reactivex.io/documentation/operators/subscribe.html)
   * [`subscribeOn`](http://reactivex.io/documentation/operators/subscribeon.html)
+  * [`timeout`](http://reactivex.io/documentation/operators/timeout.html)
+  * [`using`](http://reactivex.io/documentation/operators/using.html)
   * debug
 
 #### Conditional and Boolean Operators
+
   * [`amb`](http://reactivex.io/documentation/operators/amb.html)
+  * [`skipWhile`](http://reactivex.io/documentation/operators/skipwhile.html)
+  * [`skipUntil`](http://reactivex.io/documentation/operators/skipuntil.html)
   * [`takeUntil`](http://reactivex.io/documentation/operators/takeuntil.html)
   * [`takeWhile`](http://reactivex.io/documentation/operators/takewhile.html)
 
@@ -68,6 +84,7 @@ Operators are stateless by default.
 
   * [`concat`](http://reactivex.io/documentation/operators/concat.html)
   * [`reduce` / `aggregate`](http://reactivex.io/documentation/operators/reduce.html)
+  * [`toArray`](http://reactivex.io/documentation/operators/to.html)
 
 #### Connectable Observable Operators
 
@@ -104,7 +121,8 @@ extension NSObject {
 extension NSObject {
 
     public func rx_observe<Element>(
-        keyPath: String,
+        type: E.Type,
+        _ keyPath: String,
         options: NSKeyValueObservingOptions = .New | .Initial,
         retainSelf: Bool = true
     )  -> Observable<Element?> {}
@@ -112,7 +130,8 @@ extension NSObject {
 #if !DISABLE_SWIZZLING
 
     public func rx_observeWeakly<Element>(
-        keyPath: String,
+        type: E.Type,
+        _ keyPath: String,
         options: NSKeyValueObservingOptions = .New | .Initial
     ) -> Observable<Element?> {}
 
@@ -123,13 +142,13 @@ extension NSObject {
 ```swift
 extension NSURLSession {
 
-    public func rx_response(request: NSURLRequest) -> Observable<(NSData!, NSURLResponse!)> {}
+    public func rx_response(request: NSURLRequest) -> Observable<(NSData, NSURLResponse)> {}
 
     public func rx_data(request: NSURLRequest) -> Observable<NSData> {}
 
-    public func rx_JSON(request: NSURLRequest) -> Observable<AnyObject!> {}
+    public func rx_JSON(request: NSURLRequest) -> Observable<AnyObject> {}
 
-    public func rx_JSON(URL: NSURL) -> Observable<AnyObject!> {}
+    public func rx_JSON(URL: NSURL) -> Observable<AnyObject> {}
 
 }
 ```
@@ -155,33 +174,33 @@ extension CLLocationManager {
 
     public var rx_delegate: DelegateProxy {}
 
-    public var rx_didUpdateLocations: Observable<[CLLocation]!> {}
+    public var rx_didUpdateLocations: Observable<[CLLocation]> {}
 
-    public var rx_didFailWithError: Observable<NSError!> {}
+    public var rx_didFailWithError: Observable<NSError> {}
 
-    public var rx_didFinishDeferredUpdatesWithError: Observable<NSError!> {}
+    public var rx_didFinishDeferredUpdatesWithError: Observable<NSError> {}
 
     public var rx_didPauseLocationUpdates: Observable<Void> {}
 
     public var rx_didResumeLocationUpdates: Observable<Void> {}
 
-    public var rx_didUpdateHeading: Observable<CLHeading!> {}
+    public var rx_didUpdateHeading: Observable<CLHeading> {}
 
-    public var rx_didEnterRegion: Observable<CLRegion!> {}
+    public var rx_didEnterRegion: Observable<CLRegion> {}
 
-    public var rx_didExitRegion: Observable<CLRegion!> {}
+    public var rx_didExitRegion: Observable<CLRegion> {}
 
-    public var rx_didDetermineStateForRegion: Observable<(state: CLRegionState, region: CLRegion!)> {}
+    public var rx_didDetermineStateForRegion: Observable<(state: CLRegionState, region: CLRegion)> {}
 
-    public var rx_monitoringDidFailForRegionWithError: Observable<(region: CLRegion!, error: NSError!)> {}
+    public var rx_monitoringDidFailForRegionWithError: Observable<(region: CLRegion?, error: NSError)> {}
 
-    public var rx_didStartMonitoringForRegion: Observable<CLRegion!> {}
+    public var rx_didStartMonitoringForRegion: Observable<CLRegion> {}
 
-    public var rx_didRangeBeaconsInRegion: Observable<(beacons: [CLBeacon]!, region: CLBeaconRegion!)> {}
+    public var rx_didRangeBeaconsInRegion: Observable<(beacons: [CLBeacon], region: CLBeaconRegion)> {}
 
-    public var rx_rangingBeaconsDidFailForRegionWithError: Observable<(region: CLBeaconRegion!, error: NSError!)> {}
+    public var rx_rangingBeaconsDidFailForRegionWithError: Observable<(region: CLBeaconRegion, error: NSError)> {}
 
-    public var rx_didVisit: Observable<CLVisit!> {}
+    public var rx_didVisit: Observable<CLVisit> {}
 
     public var rx_didChangeAuthorizationStatus: Observable<CLAuthorizationStatus> {}
 
@@ -194,7 +213,7 @@ extension CLLocationManager {
 
 extension UIControl {
 
-    public func rx_controlEvents(controlEvents: UIControlEvents) -> ControlEvent<Void> {}
+    public func rx_controlEvent(controlEvents: UIControlEvents) -> ControlEvent<Void> {}
 
     public var rx_enabled: ObserverOf<Bool> {}
 }
@@ -258,7 +277,7 @@ extension UIImageView {
 
     public var rx_image: ObserverOf<UIImage!> {}
 
-    public func rx_imageAnimated(animated: Bool) -> ObserverOf<UIImage!> {}
+    public func rx_imageAnimated(transitionType: String?) -> AnyObserver<UIImage?>
 
 }
 ```
@@ -300,11 +319,13 @@ extension UITableView {
 
     public func rx_itemsWithCellFactory(source: O)(cellFactory: (UITableView, Int, S.Generator.Element) -> UITableViewCell) -> Disposable {}
 
-    public func rx_itemsWithCellIdentifier(cellIdentifier: String)(source: O)(configureCell: (Int, S.Generator.Element, Cell) -> Void) -> Disposable {}
+    public func rx_itemsWithCellIdentifier(cellIdentifier: String, cellType: Cell.Type = Cell.self)(source: O)(configureCell: (Int, S.Generator.Element, Cell) -> Void) -> Disposable {}
 
     public func rx_itemsWithDataSource(dataSource: DataSource)(source: O) -> Disposable {}
 
     public var rx_itemSelected: ControlEvent<NSIndexPath> {}
+
+    public var rx_itemDeselected: ControlEvent<NSIndexPath> {}
 
     public var rx_itemInserted: ControlEvent<NSIndexPath> {}
 
@@ -312,8 +333,11 @@ extension UITableView {
 
     public var rx_itemMoved: ControlEvent<ItemMovedEvent> {}
 
-    // This method only works in case one of the `rx_itemsWith*` methods was used.
-    public func rx_modelSelected<T>() -> ControlEvent<T> {}
+    // This method only works in case one of the `rx_itemsWith*` methods was used, or data source implements `SectionedViewDataSourceType`
+    public func rx_modelSelected<T>(modelType: T.Type) -> ControlEvent<T> {}
+
+    // This method only works in case one of the `rx_itemsWith*` methods was used, or data source implements `SectionedViewDataSourceType`
+    public func rx_modelDeselected<T>(modelType: T.Type) -> ControlEvent<T> {}
 
 }
 ```
@@ -327,14 +351,19 @@ extension UICollectionView {
 
     public func rx_itemsWithCellFactory(source: O)(cellFactory: (UICollectionView, Int, S.Generator.Element) -> UICollectionViewCell) -> Disposable {}
 
-    public func rx_itemsWithCellIdentifier(cellIdentifier: String)(source: O)(configureCell: (Int, S.Generator.Element, Cell) -> Void) -> Disposable {}
+    public func rx_itemsWithCellIdentifier(cellIdentifier: String, cellType: Cell.Type = Cell.self)(source: O)(configureCell: (Int, S.Generator.Element, Cell) -> Void) -> Disposable {}
 
     public func rx_itemsWithDataSource(dataSource: DataSource)(source: O) -> Disposable {}
 
     public var rx_itemSelected: ControlEvent<NSIndexPath> {}
 
-    // This method only works in case one of the `rx_itemsWith*` methods was used.
-    public func rx_modelSelected<T>() -> ControlEvent<T> {}
+    public var rx_itemDeselected: ControlEvent<NSIndexPath> {}
+
+    // This method only works in case one of the `rx_itemsWith*` methods was used, or data source implements `SectionedViewDataSourceType`
+    public func rx_modelSelected<T>(modelType: T.Type) -> ControlEvent<T> {}
+
+    // This method only works in case one of the `rx_itemsWith*` methods was used, or data source implements `SectionedViewDataSourceType`
+    public func rx_modelSelected<T>(modelType: T.Type) -> ControlEvent<T> {}
 }
 ```
 
@@ -347,30 +376,11 @@ extension UIGestureRecognizer {
 ```
 
 ```swift
-extension UIActionSheet {
+extension UIImagePickerController {
 
-    public var rx_delegate: DelegateProxy {}
+    public var rx_didFinishPickingMediaWithInfo: Observable<[String : AnyObject]> {}
 
-    public var rx_clickedButtonAtIndex: ControlEvent<Int> {}
-
-    public var rx_willDismissWithButtonIndex: ControlEvent<Int> {}
-
-    public var rx_didDismissWithButtonIndex: ControlEvent<Int> {}
-
-}
-```
-
-
-```swift
-extension UIAlertView {
-
-    public var rx_delegate: DelegateProxy {}
-
-    public var rx_clickedButtonAtIndex: ControlEvent<Int> {}
-
-    public var rx_willDismissWithButtonIndex: ControlEvent<Int> {}
-
-    public var rx_didDismissWithButtonIndex: ControlEvent<Int> {}
+    public var rx_didCancel: Observable<()> {}
 
 }
 ```
@@ -391,12 +401,29 @@ extension UISwitch {
 }
 ```
 
+```swift
+extension UIActivityIndicatorView {
+
+    public var rx_animating: AnyObserver<Bool> {}
+
+}
+```
+
+```swift
+extension UINavigationItem {
+
+    public var rx_title: AnyObserver<String?> {}
+}
+```
+
 **OSX**
 
 ```swift
 extension NSControl {
 
-    public var rx_controlEvents: ControlEvent<()> {}
+    public var rx_controlEvent: ControlEvent<()> {}
+
+    public var rx_enabled: AnyObserver<Bool> {}
 
 }
 ```
@@ -415,15 +442,17 @@ extension NSButton {
 
     public var rx_tap: ControlEvent<Void> {}
 
+    public var rx_state: ControlProperty<Int> {}
+
 }
 ```
 
 ```swift
 extension NSImageView {
 
-    public var rx_image: ObserverOf<NSImage!> {}
+    public var rx_image: ObserverOf<NSImage?> {}
 
-    public func rx_imageAnimated(animated: Bool) -> ObserverOf<NSImage!> {}
+    public func rx_imageAnimated(transitionType: String?) -> AnyObserver<NSImage?>
 }
 ```
 
@@ -433,6 +462,14 @@ extension NSTextField {
     public var rx_delegate: DelegateProxy {}
 
     public var rx_text: ControlProperty<String> {}
-      
+
+}
+```
+
+```swift
+extension UITabBarItem {
+
+    public var rx_badgeValue: AnyObserver<String?> {}
+
 }
 ```

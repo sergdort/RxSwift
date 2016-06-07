@@ -3,7 +3,7 @@
 //  RxCocoa
 //
 //  Created by Krunoslav Zaher on 6/14/15.
-//  Copyright (c) 2015 Krunoslav Zaher. All rights reserved.
+//  Copyright © 2015 Krunoslav Zaher. All rights reserved.
 //
 
 import Foundation
@@ -23,12 +23,15 @@ public class DelegateProxy : _RXDelegateProxy {
     
     private var subjectsForSelector = [Selector: PublishSubject<[AnyObject]>]()
 
-    unowned let parentObject: AnyObject
+    /**
+    Parent object associated with delegate proxy.
+    */
+    weak private(set) var parentObject: AnyObject?
     
     /**
     Initializes new instance.
     
-    - parameter parentObject: Parent object that owns `DelegateProxy` as associated object.
+    - parameter parentObject: Optional parent object that owns `DelegateProxy` as associated object.
     */
     public required init(parentObject: AnyObject) {
         self.parentObject = parentObject
@@ -42,7 +45,43 @@ public class DelegateProxy : _RXDelegateProxy {
     
     /**
     Returns observable sequence of invocations of delegate methods.
-    
+
+    Only methods that have `void` return value can be observed using this method because
+     those methods are used as a notification mechanism. It doesn't matter if they are optional
+     or not. Observing is performed by installing a hidden associated `PublishSubject` that is 
+     used to dispatch messages to observers.
+
+    Delegate methods that have non `void` return value can't be observed directly using this method
+     because:
+     * those methods are not intended to be used as a notification mechanism, but as a behavior customization mechanism
+     * there is no sensible automatic way to determine a default return value
+
+    In case observing of delegate methods that have return type is required, it can be done by
+     manually installing a `PublishSubject` or `BehaviorSubject` and implementing delegate method.
+     
+     e.g.
+     
+         // delegate proxy part (RxScrollViewDelegateProxy)
+
+         let internalSubject = PublishSubject<CGPoint>
+     
+         public func requiredDelegateMethod(scrollView: UIScrollView, arg1: CGPoint) -> Bool {
+             internalSubject.on(.Next(arg1))
+             return self._forwardToDelegate?.requiredDelegateMethod?(scrollView, arg1: arg1) ?? defaultReturnValue
+         }
+     
+         ....
+
+         // reactive property implementation in a real class (`UIScrollView`)
+         public var rx_property: Observable<CGPoint> {
+             let proxy = RxScrollViewDelegateProxy.proxyForObject(self)
+             return proxy.internalSubject.asObservable()
+         }
+
+     **In case calling this method prints "Delegate proxy is already implementing `\(selector)`, 
+     a more performant way of registering might exist.", that means that manual observing method 
+     is required analog to the example above because delegate method has already been implemented.**
+
     - parameter selector: Selector used to filter observed invocations of delegate methods.
     - returns: Observable sequence of arguments passed to `selector` method.
     */
@@ -71,10 +110,6 @@ public class DelegateProxy : _RXDelegateProxy {
     
     public override func interceptedSelector(selector: Selector, withArguments arguments: [AnyObject]!) {
         subjectsForSelector[selector]?.on(.Next(arguments))
-    }
-    
-    class func _pointer(p: UnsafePointer<Void>) -> UnsafePointer<Void> {
-        return p
     }
     
     /**
@@ -146,5 +181,11 @@ public class DelegateProxy : _RXDelegateProxy {
 #if TRACE_RESOURCES
         OSAtomicDecrement32(&resourceCount)
 #endif
+    }
+
+    // MARK: Pointer
+
+    class func _pointer(p: UnsafePointer<Void>) -> UnsafePointer<Void> {
+        return p
     }
 }

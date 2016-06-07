@@ -3,7 +3,7 @@
 //  Rx
 //
 //  Created by Krunoslav Zaher on 3/21/15.
-//  Copyright (c) 2015 Krunoslav Zaher. All rights reserved.
+//  Copyright © 2015 Krunoslav Zaher. All rights reserved.
 //
 
 import Foundation
@@ -22,57 +22,41 @@ public struct Queue<T>: SequenceType {
     */
     public typealias Generator = AnyGenerator<T>
     
-    let resizeFactor = 2
+    private let _resizeFactor = 2
     
-    private var storage: [T?]
-    private var _count: Int
-    private var pushNextIndex: Int
-    private var initialCapacity: Int
-    private var version: Int
-    
+    private var _storage: ContiguousArray<T?>
+    private var _count = 0
+    private var _pushNextIndex = 0
+    private var _initialCapacity: Int
+
     /**
     Creates new queue.
     
     - parameter capacity: Capacity of newly created queue.
     */
     public init(capacity: Int) {
-        initialCapacity = capacity
-        
-        version = 0
-        _count = 0
-        pushNextIndex = 0
-     
-        if capacity > 0 {
-            storage = [T?](count: capacity, repeatedValue: nil)
-        }
-        else {
-            storage = []
-        }
+        _initialCapacity = capacity
+
+        _storage = ContiguousArray<T?>(count: capacity, repeatedValue: nil)
     }
     
     private var dequeueIndex: Int {
-        get {
-           let index = pushNextIndex - count
-            return index < 0 ? index + self.storage.count : index
-        }
+        let index = _pushNextIndex - count
+        return index < 0 ? index + _storage.count : index
     }
     
     /**
     - returns: Is queue empty.
     */
-    public var empty: Bool {
-        get {
-            return count == 0
-        }
+    public var isEmpty: Bool {
+        return count == 0
     }
     
     /**
     - returns: Number of elements inside queue.
     */
     public var count: Int {
-        get {
-            return _count
-        }
+        return _count
     }
     
     /**
@@ -81,28 +65,28 @@ public struct Queue<T>: SequenceType {
     public func peek() -> T {
         precondition(count > 0)
         
-        return storage[dequeueIndex]!
+        return _storage[dequeueIndex]!
     }
     
     mutating private func resizeTo(size: Int) {
-        var newStorage = [T?](count: size, repeatedValue: nil)
+        var newStorage = ContiguousArray<T?>(count: size, repeatedValue: nil)
         
         let count = _count
         
         let dequeueIndex = self.dequeueIndex
-        let spaceToEndOfQueue = self.storage.count - dequeueIndex
+        let spaceToEndOfQueue = _storage.count - dequeueIndex
         
         // first batch is from dequeue index to end of array
         let countElementsInFirstBatch = min(count, spaceToEndOfQueue)
         // second batch is wrapped from start of array to end of queue
         let numberOfElementsInSecondBatch = count - countElementsInFirstBatch
         
-        newStorage[0 ..< countElementsInFirstBatch] = self.storage[dequeueIndex ..< (dequeueIndex + countElementsInFirstBatch)]
-        newStorage[countElementsInFirstBatch ..< (countElementsInFirstBatch + numberOfElementsInSecondBatch)] = self.storage[0 ..< numberOfElementsInSecondBatch]
+        newStorage[0 ..< countElementsInFirstBatch] = _storage[dequeueIndex ..< (dequeueIndex + countElementsInFirstBatch)]
+        newStorage[countElementsInFirstBatch ..< (countElementsInFirstBatch + numberOfElementsInSecondBatch)] = _storage[0 ..< numberOfElementsInSecondBatch]
         
         _count = count
-        pushNextIndex = count
-        storage = newStorage
+        _pushNextIndex = count
+        _storage = newStorage
     }
     
     /**
@@ -111,63 +95,50 @@ public struct Queue<T>: SequenceType {
     - parameter element: Element to enqueue.
     */
     public mutating func enqueue(element: T) {
-        version++
-        
-        if count == storage.count {
-            resizeTo(max(storage.count, 1) * resizeFactor)
+        if count == _storage.count {
+            resizeTo(max(_storage.count, 1) * _resizeFactor)
         }
         
-        storage[pushNextIndex] = element
-        pushNextIndex++
-        _count = _count + 1
+        _storage[_pushNextIndex] = element
+        _pushNextIndex += 1
+        _count += 1
         
-        if pushNextIndex >= storage.count {
-            pushNextIndex -= storage.count
+        if _pushNextIndex >= _storage.count {
+            _pushNextIndex -= _storage.count
         }
     }
     
     private mutating func dequeueElementOnly() -> T {
         precondition(count > 0)
         
-        version++
-        
         let index = dequeueIndex
-        let value = storage[index]!
-        
-        storage[index] = nil
-        
-        _count = _count - 1
-        
-        return value
-    }
-    
-    /**
-    Dequeues element and returns it, or returns `nil` in case queue is empty.
-    
-    - returns: Dequeued element.
-    */
-    public mutating func tryDequeue() -> T? {
-        if self.count == 0 {
-            return nil
+
+        defer {
+            _storage[index] = nil
+            _count -= 1
         }
-        
-        return dequeue()
+
+        return _storage[index]!
     }
-    
+
     /**
     Dequeues element or throws an exception in case queue is empty.
     
     - returns: Dequeued element.
     */
-    public mutating func dequeue() -> T {
-        let value = dequeueElementOnly()
-        
-        let downsizeLimit = storage.count / (resizeFactor * resizeFactor)
-        if _count < downsizeLimit && downsizeLimit >= initialCapacity {
-            resizeTo(storage.count / resizeFactor)
+    public mutating func dequeue() -> T? {
+        if self.count == 0 {
+            return nil
         }
-        
-        return value
+
+        defer {
+            let downsizeLimit = _storage.count / (_resizeFactor * _resizeFactor)
+            if _count < downsizeLimit && downsizeLimit >= _initialCapacity {
+                resizeTo(_storage.count / _resizeFactor)
+            }
+        }
+
+        return dequeueElementOnly()
     }
     
     /**
@@ -176,24 +147,22 @@ public struct Queue<T>: SequenceType {
     public func generate() -> Generator {
         var i = dequeueIndex
         var count = _count
-        
-        let lastVersion = version
-        
-        return anyGenerator {
-            if lastVersion != self.version {
-                rxFatalError("Collection was modified while enumerated")
-            }
-            
+
+        return AnyGenerator {
             if count == 0 {
                 return nil
             }
-            
-            count--
-            if i >= self.storage.count {
-                i -= self.storage.count
+
+            defer {
+                count -= 1
+                i += 1
             }
-            
-            return self.storage[i++]
+
+            if i >= self._storage.count {
+                i -= self._storage.count
+            }
+
+            return self._storage[i]
         }
     }
 }

@@ -3,12 +3,28 @@
 //  RxExample
 //
 //  Created by Krunoslav Zaher on 6/28/15.
-//  Copyright (c) 2015 Krunoslav Zaher. All rights reserved.
+//  Copyright © 2015 Krunoslav Zaher. All rights reserved.
 //
 
 import Foundation
 
-typealias NumberSection = HashableSectionModel<String, Int>
+typealias NumberSection = AnimatableSectionModel<String, Int>
+
+extension String : IdentifiableType {
+    public typealias Identity = String
+
+    public var identity: String {
+        return self
+    }
+}
+
+extension Int : IdentifiableType {
+    public typealias Identity = Int
+
+    public var identity: Int {
+        return self
+    }
+}
 
 let insertItems = true
 let deleteItems = true
