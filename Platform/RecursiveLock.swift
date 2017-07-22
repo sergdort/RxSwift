@@ -7,6 +7,9 @@
 //
 
 import class Foundation.NSRecursiveLock
+#if !RX_NO_MODULE
+    import struct RxSwift.Resources
+#endif
 
 #if TRACE_RESOURCES
     class RecursiveLock: NSRecursiveLock {
